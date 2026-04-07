@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Florida Climate Resilience — $5B Investment Map</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --infra: #1B5E7B;
+    --climate: #4A8C3F;
+    --community: #C4882F;
+    --se-fill: #2980b9;
+    --tb-fill: #27ae60;
+    --sw-fill: #e67e22;
+    --other-fill: #bdc3c7;
+    --bg: #f5f6f8;
+    --text: #2c3e50;
+    --card-bg: #ffffff;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+  }
+
+  /* ── HERO ── */
+  .hero {
+    position: relative;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
+    color: #fff;
+    overflow: hidden;
+  }
+  .hero::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    pointer-events: none;
+  }
+  .hero h1 {
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    margin-bottom: 0.5rem;
+    position: relative;
+    z-index: 1;
+  }
+  .hero h1 span { color: #5dade2; }
+  .hero p {
+    font-size: clamp(1rem, 2vw, 1.25rem);
+    font-weight: 300;
+    max-width: 640px;
+    margin: 0.5rem auto 2rem;
+    opacity: 0.85;
+    position: relative;
+    z-index: 1;
+  }
+  .hero .scroll-cue {
+    position: absolute;
+    bottom: 2rem;
+    animation: bounce 2s infinite;
+    z-index: 1;
+    opacity: 0.7;
+    cursor: pointer;
+  }
+  @keyframes bounce {
+    0%,100% { transform: translateY(0); }
+    50% { transform: translateY(10px); }
+  }
+  .hero .kpi-row {
+    display: flex;
+    gap: 2rem;
+    margin-top: 1.5rem;
+    position: relative;
+    z-index: 1;
+  }
+  .kpi { text-align: center; }
+  .kpi .num { font-size: 2.5rem; font-weight: 800; }
+  .kpi .label { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.1em; opacity: 0.7; }
+
+  /* ── NARRATIVE SECTIONS ── */
+  .narrative {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 4rem 1.5rem;
+  }
+  .narrative h2 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    border-left: 4px solid var(--infra);
+    padding-left: 1rem;
+  }
+  .narrative p { margin-bottom: 1rem; font-size: 1.05rem; color: #555; }
+
+  .pillar-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1.5rem;
+    margin: 2rem 0 3rem;
+  }
+  .pillar-card {
+    background: var(--card-bg);
+    border-radius: 12px;
+    padding: 1.75rem;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    border-top: 4px solid;
+    transition: transform 0.2s;
+  }
+  .pillar-card:hover { transform: translateY(-4px); }
+  .pillar-card.infra { border-color: var(--infra); }
+  .pillar-card.climate { border-color: var(--climate); }
+  .pillar-card.community { border-color: var(--community); }
+  .pillar-card h3 { font-size: 1.1rem; font-weight: 700; margin-bottom: 0.5rem; }
+  .pillar-card .amount { font-size: 1.6rem; font-weight: 800; }
+  .pillar-card .pct { font-size: 0.85rem; opacity: 0.6; margin-left: 0.25rem; }
+  .pillar-card ul { list-style: none; margin-top: 0.75rem; }
+  .pillar-card li { padding: 0.25rem 0; font-size: 0.9rem; color: #666; }
+  .pillar-card li::before { content: "→ "; color: #999; }
+
+  /* ── MAP SECTION ── */
+  .map-section {
+    background: #fff;
+    padding: 3rem 0;
+  }
+  .map-section .section-header {
+    text-align: center;
+    max-width: 700px;
+    margin: 0 auto 1.5rem;
+    padding: 0 1.5rem;
+  }
+  .map-section .section-header h2 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+  }
+  .map-section .section-header p {
+    color: #777;
+    font-size: 1rem;
+  }
+
+  #map {
+    width: 100%;
+    height: 70vh;
+    min-height: 500px;
+    border-top: 1px solid #e0e0e0;
+    border-bottom: 1px solid #e0e0e0;
+  }
+
+  /* ── HOVER PANEL (inside map) ── */
+  .info-panel {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 1000;
+    background: rgba(255,255,255,0.96);
+    backdrop-filter: blur(8px);
+    border-radius: 12px;
+    padding: 1.25rem 1.5rem;
+    width: 320px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+    font-family: 'Inter', sans-serif;
+    transition: opacity 0.2s;
+  }
+  .info-panel.empty { opacity: 0.7; }
+  .info-panel h3 { font-size: 1.1rem; font-weight: 700; margin-bottom: 0.15rem; }
+  .info-panel .region-label { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.75rem; }
+  .info-panel .bar-group { margin-bottom: 0.6rem; }
+  .info-panel .bar-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.82rem;
+    font-weight: 500;
+    margin-bottom: 2px;
+  }
+  .info-panel .bar-track {
+    height: 10px;
+    background: #eee;
+    border-radius: 5px;
+    overflow: hidden;
+  }
+  .info-panel .bar-fill {
+    height: 100%;
+    border-radius: 5px;
+    transition: width 0.4s ease;
+  }
+  .info-panel .total-line {
+    margin-top: 0.75rem;
+    padding-top: 0.6rem;
+    border-top: 1px solid #e0e0e0;
+    display: flex;
+    justify-content: space-between;
+    font-weight: 700;
+    font-size: 1rem;
+  }
+  .info-panel .county-list {
+    margin-top: 0.5rem;
+    font-size: 0.78rem;
+    color: #888;
+    line-height: 1.5;
+  }
+
+  /* ── LEGEND (bottom-left of map) ── */
+  .map-legend {
+    position: absolute;
+    bottom: 24px;
+    left: 12px;
+    z-index: 1000;
+    background: rgba(255,255,255,0.95);
+    backdrop-filter: blur(6px);
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.78rem;
+  }
+  .map-legend .leg-item { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
+  .map-legend .swatch { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; }
+
+  /* ── METHODOLOGY SECTION ── */
+  .methodology {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 4rem 1.5rem 6rem;
+  }
+  .methodology h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+  }
+  .methodology p { color: #666; font-size: 0.95rem; margin-bottom: 0.75rem; }
+  .methodology table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1.5rem;
+    font-size: 0.9rem;
+  }
+  .methodology th, .methodology td {
+    text-align: left;
+    padding: 0.6rem 1rem;
+    border-bottom: 1px solid #e8e8e8;
+  }
+  .methodology th {
+    font-weight: 600;
+    background: #f8f9fa;
+    position: sticky;
+    top: 0;
+  }
+  .methodology td.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+  /* ── FOOTER ── */
+  footer {
+    text-align: center;
+    padding: 2rem;
+    font-size: 0.8rem;
+    color: #aaa;
+    border-top: 1px solid #e8e8e8;
+  }
+
+  /* Mobile tweaks */
+  @media (max-width: 700px) {
+    .info-panel { width: 260px; padding: 1rem; }
+    .hero .kpi-row { flex-direction: column; gap: 1rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════ HERO ═══════════════ -->
+<section class="hero" id="top">
+  <h1>Florida Climate Resilience<br><span>$5 Billion Investment Map</span></h1>
+  <p>Explore how a proposed $5B resilience fund is allocated across 20 target counties in Southeast Florida, Tampa Bay, and Southwest Florida — proportional to risk, population, and social vulnerability.</p>
+  <div class="kpi-row">
+    <div class="kpi"><div class="num">$5B</div><div class="label">Total Investment</div></div>
+    <div class="kpi"><div class="num">20</div><div class="label">Target Counties</div></div>
+    <div class="kpi"><div class="num">3</div><div class="label">Regions</div></div>
+    <div class="kpi"><div class="num">10 yr</div><div class="label">Horizon</div></div>
+  </div>
+  <div class="scroll-cue" onclick="document.getElementById('pillars').scrollIntoView()">
+    <svg width="32" height="32" fill="none" stroke="#fff" stroke-width="2"><path d="M8 12l8 8 8-8"/></svg>
+  </div>
+</section>
+
+<!-- ═══════════════ PILLARS ═══════════════ -->
+<section class="narrative" id="pillars">
+  <h2>The Three Investment Pillars</h2>
+  <p>The recommended 50 / 30 / 20 allocation prioritises near-term risk reduction through infrastructure while building long-run economic competitiveness via climate-tech and protecting the most vulnerable communities.</p>
+
+  <div class="pillar-cards">
+    <div class="pillar-card infra">
+      <h3 style="color:var(--infra)">Coastal & Flood Infrastructure</h3>
+      <div class="amount" style="color:var(--infra)">$2.5B <span class="pct">50%</span></div>
+      <ul>
+        <li>Seawall hardening (Cat 4, 50-yr horizon)</li>
+        <li>Stormwater drainage & pump station upgrades</li>
+        <li>Wetland restoration — 500K acres target</li>
+        <li>Buried utilities in high-risk zones</li>
+      </ul>
+    </div>
+    <div class="pillar-card climate">
+      <h3 style="color:var(--climate)">Climate-Tech Ecosystem</h3>
+      <div class="amount" style="color:var(--climate)">$1.5B <span class="pct">30%</span></div>
+      <ul>
+        <li>Incubator grants & R&D commercialisation</li>
+        <li>NextEra grid hardening + storage</li>
+        <li>Attract 10+ climate-tech companies</li>
+        <li>$149B global market by 2032</li>
+      </ul>
+    </div>
+    <div class="pillar-card community">
+      <h3 style="color:var(--community)">Community & Equity Programs</h3>
+      <div class="amount" style="color:var(--community)">$1.0B <span class="pct">20%</span></div>
+      <ul>
+        <li>Workforce development — 50K jobs</li>
+        <li>Insurance affordability programs</li>
+        <li>Flood resilience grants for 2M+ residents</li>
+        <li>Investment proportional to SVI</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ MAP ═══════════════ -->
+<section class="map-section" id="explore">
+  <div class="section-header">
+    <h2>Explore the Investment by Region</h2>
+    <p>Hover over any county to see how the $5B breaks down across the three pillars. Investment is weighted by population, coastal exposure, FEMA flood-zone density, and Social Vulnerability Index (SVI).</p>
+  </div>
+  <div style="position:relative;">
+    <div id="map"></div>
+
+    <!-- Info panel -->
+    <div class="info-panel empty" id="infoPanel">
+      <h3 id="panelTitle">Hover over a county</h3>
+      <div class="region-label" id="panelRegion">to see investment details</div>
+      <div id="panelBars"></div>
+      <div class="county-list" id="panelCounties"></div>
+    </div>
+
+    <!-- Legend -->
+    <div class="map-legend">
+      <div class="leg-item"><div class="swatch" style="background:var(--se-fill)"></div> Southeast Florida (8 counties)</div>
+      <div class="leg-item"><div class="swatch" style="background:var(--tb-fill)"></div> Tampa Bay (7 counties)</div>
+      <div class="leg-item"><div class="swatch" style="background:var(--sw-fill)"></div> Southwest Florida (5 counties)</div>
+      <div class="leg-item"><div class="swatch" style="background:var(--other-fill)"></div> Other Florida counties</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ METHODOLOGY ═══════════════ -->
+<section class="methodology" id="methodology">
+  <h2>Regional Allocation Methodology</h2>
+  <p>Investment is distributed across the three target regions using a composite weight derived from population share, coastal exposure miles, percentage of land in FEMA flood zones, and CDC/ATSDR Social Vulnerability Index. The 50/30/20 pillar split is then applied within each region. Southeast Florida receives the largest share due to its population density and coastal risk concentration.</p>
+
+  <table id="summaryTable">
+    <thead>
+      <tr>
+        <th>Region</th>
+        <th>Weight</th>
+        <th>Infrastructure</th>
+        <th>Climate-Tech</th>
+        <th>Community</th>
+        <th>Total</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</section>
+
+<footer>
+  Florida Climate Resilience Investment Storymap &middot; Data reflects proposed allocations &middot; Built with Leaflet & OpenStreetMap
+</footer>
+
+<script>
+// ════════════════════════════════════════════════════
+//  DATA
+// ════════════════════════════════════════════════════
+const REGIONS = {
+  "Southeast Florida": {
+    color: "#2980b9",
+    colorHover: "#3498db",
+    weight: 0.55, // largest pop, most coastal exposure, highest flood risk
+    counties: ["Broward","Indian River","Martin","Miami-Dade","Monroe","Palm Beach","St. Lucie","Okeechobee"]
+  },
+  "Tampa Bay": {
+    color: "#27ae60",
+    colorHover: "#2ecc71",
+    weight: 0.30,
+    counties: ["Hillsborough","Manatee","Pasco","Pinellas","Hernando","Sarasota","Polk"]
+  },
+  "Southwest Florida": {
+    color: "#e67e22",
+    colorHover: "#f39c12",
+    weight: 0.15,
+    counties: ["Charlotte","Collier","Glades","Lee","Hendry"]
+  }
+};
+
+const TOTAL = 5e9; // $5 Billion
+const PILLARS = [
+  { name: "Coastal & Flood Infrastructure", pct: 0.50, color: "#1B5E7B" },
+  { name: "Climate-Tech Ecosystem",         pct: 0.30, color: "#4A8C3F" },
+  { name: "Community & Equity Programs",    pct: 0.20, color: "#C4882F" }
+];
+
+// Pre-compute regional allocations
+const regionData = {};
+for (const [rName, r] of Object.entries(REGIONS)) {
+  const rTotal = TOTAL * r.weight;
+  regionData[rName] = {
+    total: rTotal,
+    pillars: PILLARS.map(p => ({
+      name: p.name,
+      amount: rTotal * p.pct,
+      color: p.color,
+      pct: p.pct
+    })),
+    counties: r.counties
+  };
+}
+
+// County → region lookup (case-insensitive)
+const countyRegion = {};
+for (const [rName, r] of Object.entries(REGIONS)) {
+  r.counties.forEach(c => { countyRegion[c.toUpperCase()] = rName; });
+}
+
+// ════════════════════════════════════════════════════
+//  MAP SETUP
+// ════════════════════════════════════════════════════
+const map = L.map('map', {
+  center: [27.8, -82.5],
+  zoom: 7,
+  zoomControl: true,
+  scrollWheelZoom: true,
+  attributionControl: true
+});
+
+// Light basemap — CartoDB Positron for clean ArcGIS feel
+L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+  attribution: '&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://openstreetmap.org/copyright">OSM</a>',
+  subdomains: 'abcd',
+  maxZoom: 14
+}).addTo(map);
+
+// ════════════════════════════════════════════════════
+//  LOAD GEOJSON & RENDER
+// ════════════════════════════════════════════════════
+const GEOJSON_URL = "https://raw.githubusercontent.com/danielcs88/fl_geo_json/master/geojson-fl-counties-fips.json";
+
+fetch(GEOJSON_URL)
+  .then(r => r.json())
+  .then(geo => {
+    const geoLayer = L.geoJSON(geo, {
+      style: featureStyle,
+      onEachFeature: onEachFeature
+    }).addTo(map);
+
+    // Fit bounds to Florida
+    map.fitBounds(geoLayer.getBounds().pad(0.05));
+  })
+  .catch(err => {
+    console.error("GeoJSON load error:", err);
+    // Fallback: try alternate URL
+    fetch("https://raw.githubusercontent.com/plotly/datasets/master/geojson-counties-fips.json")
+      .then(r => r.json())
+      .then(allGeo => {
+        // Filter to Florida FIPS (12xxx)
+        allGeo.features = allGeo.features.filter(f => String(f.id || f.properties.STATE || '').startsWith('12'));
+        L.geoJSON(allGeo, { style: featureStyle, onEachFeature }).addTo(map);
+      });
+  });
+
+function getCountyName(feature) {
+  const p = feature.properties;
+  return (p.NAME || p.name || p.COUNTY || p.county || '').trim();
+}
+
+function getRegionForFeature(feature) {
+  const name = getCountyName(feature).toUpperCase();
+  return countyRegion[name] || null;
+}
+
+function featureStyle(feature) {
+  const region = getRegionForFeature(feature);
+  if (region) {
+    return {
+      fillColor: REGIONS[region].color,
+      fillOpacity: 0.55,
+      weight: 1.5,
+      color: '#fff',
+      opacity: 0.9
+    };
+  }
+  return {
+    fillColor: '#d5d8dc',
+    fillOpacity: 0.3,
+    weight: 1,
+    color: '#ccc',
+    opacity: 0.6
+  };
+}
+
+function highlightStyle(feature) {
+  const region = getRegionForFeature(feature);
+  if (region) {
+    return {
+      fillColor: REGIONS[region].colorHover,
+      fillOpacity: 0.8,
+      weight: 2.5,
+      color: '#fff'
+    };
+  }
+  return {
+    fillColor: '#bbb',
+    fillOpacity: 0.45,
+    weight: 2,
+    color: '#999'
+  };
+}
+
+function onEachFeature(feature, layer) {
+  layer.on({
+    mouseover: function(e) {
+      const l = e.target;
+      l.setStyle(highlightStyle(feature));
+      l.bringToFront();
+      updatePanel(feature);
+    },
+    mouseout: function(e) {
+      e.target.setStyle(featureStyle(feature));
+      resetPanel();
+    },
+    click: function(e) {
+      map.fitBounds(e.target.getBounds().pad(0.3));
+      updatePanel(feature);
+    }
+  });
+}
+
+// ════════════════════════════════════════════════════
+//  INFO PANEL
+// ════════════════════════════════════════════════════
+const panel = document.getElementById('infoPanel');
+const panelTitle = document.getElementById('panelTitle');
+const panelRegion = document.getElementById('panelRegion');
+const panelBars = document.getElementById('panelBars');
+const panelCounties = document.getElementById('panelCounties');
+
+function fmt(n) {
+  if (n >= 1e9) return '$' + (n / 1e9).toFixed(2) + 'B';
+  if (n >= 1e6) return '$' + (n / 1e6).toFixed(0) + 'M';
+  return '$' + n.toLocaleString();
+}
+
+function updatePanel(feature) {
+  const county = getCountyName(feature);
+  const region = getRegionForFeature(feature);
+
+  panel.classList.remove('empty');
+
+  if (!region) {
+    panelTitle.textContent = county + " County";
+    panelRegion.textContent = "Not in target area";
+    panelRegion.style.color = "#999";
+    panelBars.innerHTML = '<div style="color:#999;font-size:0.85rem;margin-top:0.5rem;">This county is outside the 20-county target zone. No direct allocation from the $5B resilience fund, though statewide programs may apply.</div>';
+    panelCounties.textContent = '';
+    return;
+  }
+
+  const data = regionData[region];
+  panelTitle.textContent = county + " County";
+  panelRegion.textContent = region;
+  panelRegion.style.color = REGIONS[region].color;
+
+  // Per-county rough share (equal split within region for simplicity)
+  const countyShare = 1 / data.counties.length;
+
+  let html = '';
+  let countyTotal = 0;
+
+  data.pillars.forEach(p => {
+    const amt = p.amount * countyShare;
+    countyTotal += amt;
+    const barPct = (p.pct * 100);
+    html += `
+      <div class="bar-group">
+        <div class="bar-label">
+          <span>${p.name}</span>
+          <span>${fmt(amt)}</span>
+        </div>
+        <div class="bar-track">
+          <div class="bar-fill" style="width:${barPct}%;background:${p.color}"></div>
+        </div>
+      </div>`;
+  });
+
+  html += `
+    <div class="total-line">
+      <span>County Total</span>
+      <span>${fmt(countyTotal)}</span>
+    </div>`;
+
+  // Region totals
+  html += `
+    <div style="margin-top:0.6rem;padding-top:0.5rem;border-top:1px dashed #ddd;font-size:0.82rem;color:#888;">
+      <strong style="color:#555;">${region} Region Total: ${fmt(data.total)}</strong>
+    </div>`;
+
+  panelBars.innerHTML = html;
+  panelCounties.textContent = "Counties: " + data.counties.join(", ");
+}
+
+function resetPanel() {
+  panel.classList.add('empty');
+  panelTitle.textContent = "Hover over a county";
+  panelRegion.textContent = "to see investment details";
+  panelRegion.style.color = "#999";
+  panelBars.innerHTML = '';
+  panelCounties.textContent = '';
+}
+
+// ════════════════════════════════════════════════════
+//  SUMMARY TABLE
+// ════════════════════════════════════════════════════
+(function buildTable() {
+  const tbody = document.querySelector('#summaryTable tbody');
+  let grandTotal = 0;
+  let grandInfra = 0, grandClimate = 0, grandComm = 0;
+
+  for (const [rName, data] of Object.entries(regionData)) {
+    const infra = data.pillars[0].amount;
+    const climate = data.pillars[1].amount;
+    const comm = data.pillars[2].amount;
+    grandInfra += infra;
+    grandClimate += climate;
+    grandComm += comm;
+    grandTotal += data.total;
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${REGIONS[rName].color};margin-right:6px;"></span>${rName}</td>
+      <td class="num">${(data.total / TOTAL * 100).toFixed(0)}%</td>
+      <td class="num">${fmt(infra)}</td>
+      <td class="num">${fmt(climate)}</td>
+      <td class="num">${fmt(comm)}</td>
+      <td class="num"><strong>${fmt(data.total)}</strong></td>`;
+    tbody.appendChild(tr);
+  }
+
+  const tfoot = document.createElement('tr');
+  tfoot.style.fontWeight = '700';
+  tfoot.style.background = '#f0f1f3';
+  tfoot.innerHTML = `
+    <td>Total</td>
+    <td class="num">100%</td>
+    <td class="num">${fmt(grandInfra)}</td>
+    <td class="num">${fmt(grandClimate)}</td>
+    <td class="num">${fmt(grandComm)}</td>
+    <td class="num">${fmt(grandTotal)}</td>`;
+  tbody.appendChild(tfoot);
+})();
+</script>
+
+</body>
+</html>
